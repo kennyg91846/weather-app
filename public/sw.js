@@ -1,4 +1,4 @@
-const APP_CACHE = 'weather-pwa-v3';
+const APP_CACHE = 'weather-pwa-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
