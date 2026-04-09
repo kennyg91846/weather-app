@@ -1,0 +1,64 @@
+:root {
+  --ink: #182429;
+  --muted: #53656d;
+  --border: #cfdde3;
+  --mint-soft: #ddf6ef;
+  --sun: #ffd24f;
+  --font-main: "Space Grotesk", "Trebuchet MS", "Segoe UI", sans-serif;
+
+  font-family: var(--font-main);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 18% 12%, #fff7d9 0%, rgba(255, 247, 217, 0) 32%),
+    radial-gradient(circle at 82% 0%, #daf6ff 0%, rgba(218, 246, 255, 0) 27%),
+    linear-gradient(180deg, #f6fbff 0%, #f0fffb 56%, #fffdf6 100%);
+  min-height: 100svh;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+@media (max-width: 420px) {
+  h1 {
+    font-size: 2.1rem;
+    line-height: 1.08;
+    text-wrap: wrap;
+  }
+}
