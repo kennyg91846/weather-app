@@ -204,6 +204,7 @@ function App() {
   const [selected, setSelected] = useState<GeoResult | null>(null)
   const [current, setCurrent] = useState<CurrentWeatherResponse | null>(null)
   const [forecast, setForecast] = useState<ForecastResponse | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
 
   const geoAttempted = useRef(false)
 
@@ -234,6 +235,35 @@ function App() {
     // trigger the effect on every render, defeating the "once on mount" intent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const handleSWUpdate = () => setUpdateAvailable(true)
+    window.addEventListener('swUpdateAvailable', handleSWUpdate)
+    return () => window.removeEventListener('swUpdateAvailable', handleSWUpdate)
+  }, [])
+
+  function handleApplyUpdate(): void {
+    // Hide the banner immediately to prevent the user from clicking twice.
+    setUpdateAvailable(false)
+
+    // Register the reload listener before posting the message to avoid any
+    // theoretical race between skipWaiting completing and our listener attaching.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload()
+    }, { once: true })
+
+    void navigator.serviceWorker.getRegistration().then((reg) => {
+      if (reg?.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+      } else {
+        // No waiting worker found; reload anyway to pick up any cached update.
+        window.location.reload()
+      }
+    }).catch((err: unknown) => {
+      console.error('[SW] Could not apply update:', err)
+      window.location.reload()
+    })
+  }
 
   function persistSnapshot(snapshot: CachedWeatherSnapshot): void {
     try {
@@ -413,6 +443,15 @@ function App() {
 
   return (
     <main className="app-shell">
+      {updateAvailable ? (
+        <div className="update-banner" role="status" aria-live="polite">
+          <span>Update available</span>
+          <button type="button" className="update-banner-btn" onClick={handleApplyUpdate}>
+            Refresh
+          </button>
+        </div>
+      ) : null}
+
       <header>
         <p className="eyebrow">Weather PWA</p>
         <h1>US Forecast by City + State</h1>
