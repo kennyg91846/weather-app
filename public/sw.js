@@ -1,4 +1,4 @@
-const APP_CACHE = 'weather-pwa-v4';
+const APP_CACHE = 'weather-pwa-v5';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,12 @@ const STATIC_ASSETS = [
   './icon-512.png',
   './icons.svg',
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(APP_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
