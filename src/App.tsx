@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import {
   Cloud,
@@ -185,6 +185,14 @@ function formatCurrentObservationTime(timestamp: number, timezoneOffsetSeconds: 
   }).format(new Date((timestamp + timezoneOffsetSeconds) * 1000))
 }
 
+function weatherErrorMessage(status: number): string {
+  if (status === 401) return 'Invalid API key. Check your VITE_OPENWEATHER_API_KEY value.'
+  if (status === 429) return 'Rate limit exceeded. Please wait a moment and try again.'
+  if (status === 404) return 'Location not found by the weather service.'
+  if (status >= 500) return 'Weather service temporarily unavailable. Try again shortly.'
+  return 'Could not load weather data right now.'
+}
+
 function App() {
   const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY as string | undefined
   const hasApiKey = Boolean(apiKey?.trim())
@@ -197,8 +205,34 @@ function App() {
   const [current, setCurrent] = useState<CurrentWeatherResponse | null>(null)
   const [forecast, setForecast] = useState<ForecastResponse | null>(null)
 
+  const geoAttempted = useRef(false)
+
   useEffect(() => {
-    restoreCachedWeather()
+    const hasCached = restoreCachedWeather()
+    if (!hasCached && hasApiKey && !geoAttempted.current) {
+      geoAttempted.current = true
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const location: GeoResult = {
+              name: 'Current location',
+              country: '',
+              lat: position.coords.latitude,
+              lon: position.coords.longitude,
+            }
+            void fetchWeatherForLocation(location)
+          },
+          () => {
+            // User denied or geolocation unavailable; stay in empty state silently.
+          },
+          { timeout: 10000 },
+        )
+      }
+    }
+    // hasApiKey derives from a constant env var (won't change between renders).
+    // fetchWeatherForLocation is re-created each render; adding it as a dep would
+    // trigger the effect on every render, defeating the "once on mount" intent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function persistSnapshot(snapshot: CachedWeatherSnapshot): void {
@@ -288,8 +322,15 @@ function App() {
         fetch(forecastUrl),
       ])
 
-      if (!currentRes.ok || !forecastRes.ok) {
-        throw new Error('Weather request failed. Check your API key and plan limits.')
+      const failedRes = !currentRes.ok ? currentRes : !forecastRes.ok ? forecastRes : null
+      if (failedRes) {
+        const msg = weatherErrorMessage(failedRes.status)
+        if (restoreCachedWeather()) {
+          setError(`${msg} Showing your last saved weather data.`)
+        } else {
+          setError(msg)
+        }
+        return
       }
 
       const currentData = (await currentRes.json()) as CurrentWeatherResponse
@@ -341,12 +382,21 @@ function App() {
       const response = await fetch(geocodeUrl)
 
       if (!response.ok) {
-        throw new Error('Geocoding request failed.')
+        if (response.status === 401) {
+          setError('Invalid API key. Check your VITE_OPENWEATHER_API_KEY value.')
+        } else if (response.status === 429) {
+          setError('Geocoding rate limit exceeded. Please wait a moment and try again.')
+        } else {
+          setError('Geocoding service error. Please try again later.')
+        }
+        setMatches([])
+        return
       }
 
       const data = (await response.json()) as GeoResult[]
       if (!data.length) {
-        setError('No US location found. Try city + 2-letter state code.')
+        setError('No location found. Try including a state code, e.g. "Austin, TX".')
+        setMatches([])
         return
       }
 
@@ -427,6 +477,8 @@ function App() {
                   key={key}
                   onClick={() => fetchWeatherForLocation(item)}
                   type="button"
+                  disabled={loading}
+                  aria-disabled={loading}
                 >
                   {item.name}, {item.state ?? 'N/A'} ({item.country})
                 </button>
